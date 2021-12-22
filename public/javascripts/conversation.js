@@ -306,6 +306,54 @@ $(() => {
             $('#input').attr('type', 'text');
     }
 
+    // TODO: develop function to convert Genie results into Forge API calls
+    function control_forge(code, results){
+        let f_start_idx = code.indexOf('@org.thingpedia.fm') + 19; // 19 is the lenght of "org.thingpedia.fm"
+        let f_end_idx = code.indexOf('(', f_start_idx);
+        const thingtalk_function = code.substring(f_start_idx, f_end_idx);
+        let id_list = [];
+        for (let r of results) {
+            id_list.push(parseInt(r.id.value));
+        }
+        console.log(results);
+
+        switch (thingtalk_function){
+            case 'building_object':
+                console.log("list to be fit to view", id_list);
+                // viewer.showAll();
+                if (id_list.length > 1){
+                    viewer.fitToView(id_list);
+                    viewer.isolate(id_list);
+                } else{
+                    viewer.fitToView(id_list);
+                    viewer.select(id_list);
+                }
+                break;
+            case 'forge_floor':
+                var guid = results[0].id.value;
+                viewer.loadDocumentNode(stored_doc, stored_doc.getRoot().findByGuid(guid));
+                break;
+            case 'forge_building':
+                var urn = results[0].id.value;
+                $("#forgeViewer").empty();
+                launchViewer(urn);
+                break
+            case 'hide_object':
+                let hide_list = [];
+                for (let r of results) {
+                    hide_list.push(parseInt(r.building_object.value));
+                }
+                viewer.fitToView(hide_list);
+                for (let i of hide_list) {
+                    viewer.hide([i]);
+                }
+                break;
+            default:
+                console.warn(`Un-recognized ThinkTalk function '${thingtalk_function}'`);
+        }
+
+    }
+
     function onWebsocketMessage(event) {
         var parsed = JSON.parse(event.data);
         console.log('received ' + event.data);
@@ -333,6 +381,10 @@ $(() => {
         lastMessageId = parsed.id;
 
         switch (parsed.type) {
+            // Add Forge control
+            case 'new-program':
+                control_forge(parsed.code, parsed.results);
+                break;
             case 'text':
             case 'result':
                 // FIXME: support more type of results
