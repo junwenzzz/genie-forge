@@ -4,7 +4,7 @@ block scripts
   script(src='https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/viewer3D.min.js')
   script(src=Config.BASE_URL + '/javascripts/forge-tree.js')
   script(src=Config.BASE_URL + '/javascripts/forge-viewer.js')
-  script(src=Config.BASE_URL + '/javascripts/conversation.js')
+  script(src=Config.BASE_URL + '/javascripts/conversation.js', type = "module")
 
 block styles
   link(rel="stylesheet" href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css")
@@ -68,6 +68,7 @@ block content_container
                   div.form-group.has-feedback#input-form-group
                     label(for='#chat-input').sr-only= _("Command:")
                     input(type='text', placeholder=_("Write your command or answer here"), value=command ? command : '').form-control#input
+                    button(type='button', title='Click to send a voice command').btn.btn-primary#record-button
 
             div#hidden-container
               div.help-block.hidden= _("Lost connection to the server.")

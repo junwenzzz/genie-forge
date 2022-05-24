@@ -29,6 +29,13 @@ import { makeRandom } from '../util/random';
 
 import conversationHandler from './conversation';
 
+// add library for audio
+import multer from 'multer';
+import * as os from 'os';
+import speech from '@google-cloud/speech';
+
+const upload = multer({ dest: os.tmpdir() });
+
 const router = express.Router();
 
 router.use('/', (req, res, next) => {
@@ -174,6 +181,89 @@ router.ws('/conversation', conversationHandler);
 router.use('/', (req, res) => {
     res.status(404).json({ error: 'Invalid endpoint' });
 });
+
+// add function to handle speech to text
+function restSTT(
+    req : express.Request,
+    res : express.Response,
+    next : express.NextFunction
+) {
+    
+    if (!req.file) {
+        // iv.failKey(req, res, "audio", { json: true });
+        res.json({
+            status: "ok",
+            text: "req.file is undefined",
+        });
+        return;
+    }
+    // if (!I18n.get(req.params.locale, false)) {
+    //     res.status(404).json({ error: "Unsupported language" });
+    //     return;
+    // }
+
+    // const stt = new SpeechToText(req.params.locale);
+    // stt.recognizeOnce(req.file.path)
+    //     .then((text) => {
+    //         res.json({
+    //             result: "ok",
+    //             text: text,
+    //         });
+    //     })
+    //     .catch(next);
+
+    // const speech = require('@google-cloud/speech');
+
+    // Creates a client
+    const client = new speech.SpeechClient({
+        project: // TODO
+        credentials: // need to figure out how to provide credentials
+    });
+
+    const filename = req.file.path;
+    // const encoding = 'LINEAR16'; // encoding can be omitted if the file format is wav
+    const sampleRateHertz = 16000;
+    const languageCode = 'en-US';
+
+    const config = {
+        // encoding: encoding,
+        sampleRateHertz: sampleRateHertz,
+        languageCode: languageCode,
+    };
+
+    /**
+     * Note that transcription is limited to 60 seconds audio.
+     * Use a GCS file for audio longer than 1 minute.
+     */
+    const audio = {
+        content: fs.readFileSync(filename).toString('base64'),
+    };
+
+    const request = {
+        config: config,
+        audio: audio,
+    };
+
+    // // Detects speech in the audio file. This creates a recognition job that you
+    // // can wait for now, or get its result later.
+    // const [operation] = 
+    client.longRunningRecognize(request);
+
+    // // Get a Promise representation of the final result of the job
+    // const [response] = await operation.promise();
+    // const transcription = response.results
+    //     .map(result => result.alternatives[0].transcript)
+    //     .join('\n');
+    // console.log(`Transcription: ${transcription}`);
+
+    res.json({
+        status: "ok",
+        text: "Genie, this should be the text",
+    });
+}
+
+// add endpoint for speech to text
+router.post('/stt', upload.single("audio"), restSTT);
 
 // if something failed, return a 500 in json form, or the appropriate status code
 router.use(errorHandling.json);

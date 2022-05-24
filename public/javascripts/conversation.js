@@ -1,4 +1,5 @@
 "use strict";
+import Recorder from './deps/recorder.js';
 $(() => {
     var baseUrl = document.body.dataset.baseUrl;
     var thingpediaUrl = document.body.dataset.thingpediaUrl;
@@ -12,6 +13,11 @@ $(() => {
     var ws;
     var open = false;
 
+    // add recording para
+    let _isRecording = false;
+    let _stream, _recorder;
+    const _sttUrl = baseUrl + '/api/stt';
+
     var pastCommandsUp = []; // array accessed by pressing up arrow
     var pastCommandsDown = []; // array accessed by pressing down arrow
     var currCommand = ""; // current command between pastCommandsUp and pastCommandsDown
@@ -21,6 +27,139 @@ $(() => {
 
     var container = $('#chat');
     var currentGrid = null;
+
+    // add function to record audio
+    function postAudio(blob) {
+        const data = new FormData();
+        data.append('audio', blob);
+        $.ajax({
+            url: _sttUrl,
+            type: 'POST',
+            data: data,
+            contentType: false,
+            processData: false,
+            success: (data) => {
+                if (data.status === 'ok') {
+                    $('#input').val(data.text).focus();
+                    manInputTextCommand('Say a command!', 3);
+                    // handleUtterance();
+                } else {
+                    console.log(data);
+                    manInputTextCommand('Hmm I couldn\'t understand...', 1);
+                    manInputTextCommand('', 5);
+                }
+            },
+            error: (error) => {
+                console.log(error);
+                manInputTextCommand('Hmm there seems to be an error...', 1);
+                manInputTextCommand('', 5);
+            }
+        });
+    }
+
+    // add function to handle record UI
+    function manInputTextCommand(msg, sts) {
+        let msgbase = 'Write your command or answer here';
+
+        switch (sts) {
+            case 1: // starting record and hide mic
+                $('#input').val('');
+                $('#input').prop('disabled', true);
+                $('#input').addClass('input-alert');
+                $('#input').attr('placeholder', msg);
+                $('#record-button').addClass('hidden');
+                break;
+            case 2: // starting record and keep mic
+                $('#input').val('');
+                $('#input').prop('disabled', true);
+                $('#input').addClass('input-alert');
+                $('#input').attr('placeholder', msg);
+                break;
+            case 3: // stop recording and show mic
+                $('#input').attr('placeholder', msgbase);
+                $('#input').removeClass('input-alert');
+                $('#input').prop('disabled', false);
+                $('#record-button').removeClass('hidden');
+                break;
+            case 4: // stop recording and keep mic
+                $('#input').attr('placeholder', msgbase);
+                $('#input').removeClass('input-alert');
+                $('#input').prop('disabled', false);
+                break;
+            case 5: // show cancel
+                $('#record-button').addClass('hidden');
+                $('#form-icon').addClass('hidden');
+                $('#cancel').removeClass('hidden');
+                $('#input').attr('placeholder', msgbase);
+                $('#input').removeClass('input-alert');
+                $('#input').prop('disabled', false);
+                break;
+            case 6: // remove cancel
+                $('#input').attr('placeholder', msgbase);
+                $('#cancel').addClass('hidden');
+                $('#input').removeClass('input-alert');
+                $('#input').prop('disabled', false);
+                break;
+            case 7: // show warning
+                $('#record-button').addClass('hidden');
+                $('#cancel').addClass('hidden');
+                $('#input').prop('disabled', true);
+                $('#input').attr('placeholder', msg);
+                $('#form-icon').removeClass('hidden');
+                break;
+            case 8: // remove warning
+                $('#input').prop('disabled', false);
+                $('#input').attr('placeholder', msgbase);
+                $('#form-icon').addClass('hidden');
+                break;
+        }
+    }
+    // add function to control audio recording
+    function startStopRecord() {
+        if (!_isRecording) {
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then((stream) => {
+                console.log('getUserMedia() success, stream created, initializing Recorder.js...');
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const context = new AudioContext();
+                const input = context.createMediaStreamSource(stream);
+                const rec = new Recorder(input, { numChannels: 1 });
+                rec.record();
+
+                console.log('Recording started');
+                manInputTextCommand('Recording... Press again to stop', 2);
+
+                _isRecording = true;
+                _stream = stream;
+                _recorder = rec;
+            }).catch((err) => {
+                console.log('getUserMedia() failed');
+                console.log(err);
+                manInputTextCommand('You don\'t seem to have a recording device enabled!', 1);
+                manInputTextCommand('', 5);
+                alert('You don\'t seem to have a recording device enabled!');
+            });
+        } else {
+            manInputTextCommand('Processing command...', 1);
+            manInputTextCommand('', 5);
+            manageSpinner('showVoice');
+            scrollChat();
+            _recorder.stop();
+            _stream.getAudioTracks()[0].stop();
+            _recorder.exportWAV((blob) => {
+                postAudio(blob);
+                // helper function to download blob for testing
+                //
+                // const url = window.URL.createObjectURL(blob);
+                // const link = document.createElement('a');
+                // link.href = url;
+                // link.setAttribute('download', 'output.wav');
+                // document.body.appendChild(link);
+                // link.click();
+                // document.body.removeChild(link);
+            });
+            _isRecording = false;
+        }
+    }
 
     function updateConnectionFeedback() {
         if (!ws || !open) {
@@ -507,6 +646,11 @@ $(() => {
                 pastCommandsUp.push($('#input').val());
             $('#input').val(currCommand);
         }
+    });
+
+    // add button for audio record
+    $('#record-button').click((event) => {
+        startStopRecord();
     });
 
     $('#save-log').click(() => {
