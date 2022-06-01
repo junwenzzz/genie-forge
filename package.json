@@ -52,7 +52,7 @@
     "@types/express-session": "^1.17.4",
     "@types/express-ws": "^3.0.1",
     "@types/gettext-parser": "^4.0.1",
-    "@types/gm": "^1.18.10",
+    "@types/gm": "^1.18.12",
     "@types/morgan": "^1.9.3",
     "@types/node": "^16.11.15",
     "@types/passport": "^1.0.7",
